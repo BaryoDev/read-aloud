@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>read-aloud — live demo · baryo.dev</title>
+<meta name="description" content="Listen to any article with Microsoft Edge neural voices. A live demo of @baryodev/read-aloud: read-aloud, word highlighting, and download the recording." />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' rx='56' fill='%232563EB'/%3E%3Crect x='52' y='92' width='86' height='16' rx='8' fill='%23FACC15'/%3E%3Crect x='52' y='130' width='70' height='16' rx='8' fill='white'/%3E%3Cg stroke='white' stroke-width='14' stroke-linecap='round' fill='none'%3E%3Cpath d='M176 100a44 44 0 0 1 0 64'/%3E%3C/g%3E%3C/svg%3E" />
+<script defer src="/analytics/script.js" data-website-id="read-aloud-demo"></script>
+<style>
+  :root {
+    --bg: #f5f6f8; --card: #ffffff; --ink: #1e2430; --muted: #5b6472;
+    --line: #e6e8ec; --brand: #2563eb; --brand-ink: #1d4ed8; --hi: rgba(250,204,21,.5);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#0f1319; --card:#161b22; --ink:#e8eaed; --muted:#9aa4b2;
+      --line:#252c37; --brand:#3b82f6; --brand-ink:#60a5fa; --hi: rgba(250,204,21,.35); }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 24px 20px 72px; }
+  header.site { display: flex; align-items: center; gap: 12px; padding: 8px 0 20px; }
+  header.site .logo { width: 40px; height: 40px; flex: none; }
+  header.site h1 { font-size: 18px; margin: 0; letter-spacing: -.01em; }
+  header.site .tag { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
+  header.site a { color: inherit; text-decoration: none; }
+
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 28px 26px; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  .book-meta { color: var(--muted); font-size: 13px; text-transform: uppercase;
+    letter-spacing: .08em; margin: 0 0 4px; }
+  .book-title { font-size: 26px; line-height: 1.2; margin: 0 0 2px; letter-spacing: -.02em; }
+  .book-author { color: var(--muted); margin: 0 0 20px; font-style: italic; }
+
+  .toolbar { position: sticky; top: 12px; z-index: 5; display: flex; flex-wrap: wrap;
+    gap: 10px; align-items: center; margin: 0 0 22px; padding: 12px;
+    background: color-mix(in srgb, var(--card) 88%, transparent);
+    backdrop-filter: blur(8px); border: 1px solid var(--line); border-radius: 12px; }
+  .toolbar select { font: inherit; padding: 9px 12px; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink); flex: 1 1 150px; min-width: 0; }
+  .btn { display: inline-flex; align-items: center; gap: .5em; padding: 10px 16px;
+    font: inherit; font-weight: 600; border-radius: 999px; border: 1px solid transparent;
+    cursor: pointer; white-space: nowrap; }
+  .btn.ghost { background: var(--bg); color: var(--ink); border-color: var(--line); }
+  .btn.ghost:disabled { opacity: .5; cursor: default; }
+
+  #article { font-size: 18px; }
+  #article p { margin: 0 0 1.1em; }
+  .read-aloud-word--active { background: var(--hi); border-radius: .15em;
+    box-shadow: 0 0 0 .12em var(--hi); }
+
+  footer { text-align: center; color: var(--muted); font-size: 13px; margin-top: 32px; }
+  footer a { color: var(--brand-ink); text-decoration: none; }
+  code.inline { background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
+    padding: 2px 6px; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="site">
+    <svg class="logo" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <defs><linearGradient id="g" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+        <stop stop-color="#2563EB"/><stop offset="1" stop-color="#4F46E5"/></linearGradient></defs>
+      <rect width="256" height="256" rx="56" fill="url(#g)"/>
+      <rect x="52" y="86" width="86" height="14" rx="7" fill="#FACC15"/>
+      <rect x="52" y="121" width="70" height="14" rx="7" fill="#fff" opacity=".92"/>
+      <rect x="52" y="156" width="52" height="14" rx="7" fill="#fff" opacity=".55"/>
+      <g stroke="#fff" stroke-width="12" stroke-linecap="round" fill="none">
+        <path d="M170 96a44 44 0 0 1 0 64" opacity=".95"/>
+        <path d="M192 78a76 76 0 0 1 0 100" opacity=".6"/></g>
+    </svg>
+    <div>
+      <h1>read-aloud <span style="color:var(--muted);font-weight:400">· live demo</span></h1>
+      <p class="tag"><code class="inline">@baryodev/read-aloud</code> — press play, follow the words, download the audio</p>
+    </div>
+  </header>
+
+  <div class="card">
+    <p class="book-meta">Chapter One · public domain</p>
+    <h2 class="book-title">Pride and Prejudice</h2>
+    <p class="book-author">Jane Austen</p>
+
+    <div class="toolbar">
+      <label style="position:absolute;width:1px;height:1px;overflow:hidden" for="voice">Voice</label>
+      <select id="voice" aria-label="Voice">
+        <option value="en-GB-SoniaNeural">British · Sonia</option>
+        <option value="en-US-JennyNeural" selected>American · Jenny</option>
+        <option value="en-US-GuyNeural">American · Guy</option>
+        <option value="en-GB-RyanNeural">British · Ryan</option>
+        <option value="en-AU-NatashaNeural">Australian · Natasha</option>
+        <option value="fil-PH-BlessicaNeural">Filipino · Blessica</option>
+      </select>
+      <button id="listen" class="btn" type="button"></button>
+      <button id="download" class="btn ghost" type="button" disabled title="Play once, then download the audio">Download</button>
+    </div>
+
+    <div id="article">
+      <p>It is a truth universally acknowledged, that a single man in possession of a good fortune, must be in want of a wife.</p>
+      <p>However little known the feelings or views of such a man may be on his first entering a neighbourhood, this truth is so well fixed in the minds of the surrounding families, that he is considered the rightful property of some one or other of their daughters.</p>
+      <p>&ldquo;My dear Mr. Bennet,&rdquo; said his lady to him one day, &ldquo;have you heard that Netherfield Park is let at last?&rdquo;</p>
+      <p>Mr. Bennet replied that he had not.</p>
+      <p>&ldquo;But it is,&rdquo; returned she; &ldquo;for Mrs. Long has just been here, and she told me all about it.&rdquo;</p>
+      <p>Mr. Bennet made no answer.</p>
+      <p>&ldquo;Do you not want to know who has taken it?&rdquo; cried his wife impatiently.</p>
+      <p>&ldquo;You want to tell me, and I have no objection to hearing it.&rdquo;</p>
+      <p>This was invitation enough.</p>
+      <p>&ldquo;Why, my dear, you must know, Mrs. Long says that Netherfield is taken by a young man of large fortune from the north of England; that he came down on Monday in a chaise and four to see the place, and was so much delighted with it that he agreed with Mr. Morris immediately; that he is to take possession before Michaelmas, and some of his servants are to be in the house by the end of next week.&rdquo;</p>
+    </div>
+  </div>
+
+  <footer>
+    Powered by <a href="https://www.npmjs.com/package/@baryodev/read-aloud" target="_blank" rel="noopener">@baryodev/read-aloud</a>
+    · <a href="https://github.com/BaryoDev/read-aloud" target="_blank" rel="noopener">source</a>
+    · <a href="https://baryo.dev" target="_blank" rel="noopener">baryo.dev</a>
+    <br/><span style="opacity:.7">Text: Jane Austen, <em>Pride and Prejudice</em> (1813), public domain. Voices: Microsoft Edge neural TTS.</span>
+  </footer>
+</div>
+
+<script type="module">
+  import { createReadAloud, downloadRecording } from "./read-aloud.js";
+
+  const listenBtn = document.getElementById("listen");
+  const downloadBtn = document.getElementById("download");
+  const voiceSel = document.getElementById("voice");
+
+  const ICON = {
+    play: '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
+    pause: '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>',
+    load: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" style="animation:spin .8s linear infinite"><path stroke-linecap="round" d="M12 3a9 9 0 1 0 9 9"/></svg>',
+  };
+  const style = document.createElement("style");
+  style.textContent = "@keyframes spin{to{transform:rotate(360deg)}}"
+    + ".btn#listen{background:var(--brand);color:#fff}"
+    + '.btn#listen[data-state="playing"]{background:#dc2626}';
+  document.head.appendChild(style);
+
+  function paint(state) {
+    const map = { loading: ["load","Loading…"], playing: ["pause","Pause"],
+      paused: ["play","Resume"], ended: ["play","Listen again"], error: ["play","Try again"] };
+    const [icon, label] = map[state] || ["play", "Listen"];
+    listenBtn.dataset.state = state;
+    listenBtn.disabled = state === "loading";
+    listenBtn.innerHTML = ICON[icon] + "<span>" + label + "</span>";
+    listenBtn.setAttribute("aria-label", label);
+  }
+
+  const reader = createReadAloud({
+    endpoint: "api/speak",
+    source: "#article",
+    voice: voiceSel.value,
+    highlight: true,
+    onState: paint,
+    onReady: () => { downloadBtn.disabled = false; },
+    onError: (e) => { paint("error"); console.error(e); },
+  });
+
+  paint("idle");
+  listenBtn.addEventListener("click", () => reader.toggle());
+  voiceSel.addEventListener("change", () => {
+    reader.update({ voice: voiceSel.value });
+    downloadBtn.disabled = true;
+  });
+  downloadBtn.addEventListener("click", async () => {
+    await reader.preload();
+    downloadRecording(reader, "pride-and-prejudice-ch1.mp3");
+  });
+</script>
+</body>
+</html>

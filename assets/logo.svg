@@ -1,0 +1,20 @@
+<svg width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="read-aloud">
+  <defs>
+    <linearGradient id="ra-bg" x1="0" y1="0" x2="256" y2="256" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#2563EB"/>
+      <stop offset="1" stop-color="#4F46E5"/>
+    </linearGradient>
+  </defs>
+  <rect width="256" height="256" rx="56" fill="url(#ra-bg)"/>
+  <!-- article lines being read; the active line is highlighted amber -->
+  <g stroke-linecap="round">
+    <rect x="52" y="86" width="86" height="14" rx="7" fill="#FACC15"/>
+    <rect x="52" y="121" width="70" height="14" rx="7" fill="#FFFFFF" opacity="0.92"/>
+    <rect x="52" y="156" width="52" height="14" rx="7" fill="#FFFFFF" opacity="0.55"/>
+  </g>
+  <!-- sound waves reading aloud -->
+  <g stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" fill="none">
+    <path d="M170 96a44 44 0 0 1 0 64" opacity="0.95"/>
+    <path d="M192 78a76 76 0 0 1 0 100" opacity="0.6"/>
+  </g>
+</svg>

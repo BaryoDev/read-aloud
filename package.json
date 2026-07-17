@@ -1,0 +1,47 @@
+{
+  "name": "@baryodev/read-aloud",
+  "version": "0.1.0",
+  "description": "Add read-aloud to any site with Microsoft Edge's neural TTS. A tiny Node engine plus a customizable, framework-free browser reader: controller, web component, and word highlighting.",
+  "keywords": ["tts", "text-to-speech", "edge-tts", "read-aloud", "accessibility", "article", "speech", "web-component"],
+  "license": "MIT",
+  "author": "BaryoDev",
+  "homepage": "https://github.com/BaryoDev/read-aloud",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BaryoDev/read-aloud.git"
+  },
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.cjs"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "import": "./dist/server.js",
+      "require": "./dist/server.cjs"
+    }
+  },
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": ["dist"],
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsup",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/ws": "^8.5.12",
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
