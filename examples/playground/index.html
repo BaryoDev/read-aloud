@@ -6,7 +6,6 @@
 <title>read-aloud — live demo · baryo.dev</title>
 <meta name="description" content="Listen to any article with Microsoft Edge neural voices. A live demo of @baryodev/read-aloud: read-aloud, word highlighting, and download the recording." />
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Crect width='256' height='256' rx='56' fill='%232563EB'/%3E%3Crect x='52' y='92' width='86' height='16' rx='8' fill='%23FACC15'/%3E%3Crect x='52' y='130' width='70' height='16' rx='8' fill='white'/%3E%3Cg stroke='white' stroke-width='14' stroke-linecap='round' fill='none'%3E%3Cpath d='M176 100a44 44 0 0 1 0 64'/%3E%3C/g%3E%3C/svg%3E" />
-<script defer src="/analytics/script.js" data-website-id="read-aloud-demo"></script>
 <style>
   :root {
     --bg: #f5f6f8; --card: #ffffff; --ink: #1e2430; --muted: #5b6472;
@@ -44,6 +43,13 @@
     cursor: pointer; white-space: nowrap; }
   .btn.ghost { background: var(--bg); color: var(--ink); border-color: var(--line); }
   .btn.ghost:disabled { opacity: .5; cursor: default; }
+  #listen { background: var(--brand); color: #fff; }
+  #listen[data-state="playing"] { background: #dc2626; }
+  #listen[data-state="loading"] { opacity: .8; cursor: default; }
+  .btn svg { flex: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { animation: spin .8s linear infinite; }
+  @media (prefers-reduced-motion: reduce) { .spin { animation: none; } }
 
   #article { font-size: 18px; }
   #article p { margin: 0 0 1.1em; }
@@ -91,7 +97,9 @@
         <option value="en-AU-NatashaNeural">Australian · Natasha</option>
         <option value="fil-PH-BlessicaNeural">Filipino · Blessica</option>
       </select>
-      <button id="listen" class="btn" type="button"></button>
+      <button id="listen" class="btn" type="button" data-state="idle" aria-label="Listen">
+        <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg><span>Listen</span>
+      </button>
       <button id="download" class="btn ghost" type="button" disabled title="Play once, then download the audio">Download</button>
     </div>
 
@@ -125,15 +133,10 @@
   const voiceSel = document.getElementById("voice");
 
   const ICON = {
-    play: '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>',
-    pause: '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>',
-    load: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" style="animation:spin .8s linear infinite"><path stroke-linecap="round" d="M12 3a9 9 0 1 0 9 9"/></svg>',
+    play: '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>',
+    pause: '<svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>',
+    load: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" class="spin" aria-hidden="true"><path stroke-linecap="round" d="M12 3a9 9 0 1 0 9 9"/></svg>',
   };
-  const style = document.createElement("style");
-  style.textContent = "@keyframes spin{to{transform:rotate(360deg)}}"
-    + ".btn#listen{background:var(--brand);color:#fff}"
-    + '.btn#listen[data-state="playing"]{background:#dc2626}';
-  document.head.appendChild(style);
 
   function paint(state) {
     const map = { loading: ["load","Loading…"], playing: ["pause","Pause"],
