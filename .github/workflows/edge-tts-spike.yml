@@ -1,0 +1,42 @@
+name: Edge TTS spike
+
+# Proves the read-aloud C# port is viable on every platform the package will actually run on.
+# The spike hits a live Microsoft endpoint that is undocumented and unsupported, so this doubles
+# as an early-warning check: when it starts failing, the Edge engine is no longer dependable and
+# the Azure engine has to become the default.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly. The point is to notice drift before a user does, not to poll hard.
+    - cron: "0 6 * * 1"
+
+jobs:
+  spike:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      # The gate: ClientWebSocket must carry the Origin and User-Agent headers, and the server
+      # must accept them. A non-zero exit means the port needs a different websocket client.
+      - name: Synthesize
+        working-directory: spike/origin-spike
+        run: dotnet run --configuration Release
+
+      - name: Upload the audio
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spike-${{ matrix.os }}
+          path: spike/origin-spike/bin/Release/net8.0/spike.mp3
+          if-no-files-found: error
