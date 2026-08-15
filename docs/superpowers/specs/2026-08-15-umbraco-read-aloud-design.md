@@ -75,6 +75,25 @@ Microsoft API**. There is no contract, no SLA, no rate card, and no commitment t
 the same next year. Microsoft could change or close it without notice, and would owe nobody an
 explanation.
 
+**It is unsupported, but it is neither obscure nor new.** Measured 15 August 2026:
+
+| | |
+|---|---|
+| `edge-tts` on PyPI | 14,645,228 downloads/month |
+| `node-edge-tts` on npm | 8,603,847 downloads/month |
+| `msedge-tts` on npm | 152,785/month |
+| `rany2/edge-tts` on GitHub | 11,727 stars, 1,078 forks |
+| First released | May 2021, still actively maintained |
+
+Roughly 23 million downloads a month across those, and five years of this integration path being
+used at scale without Microsoft closing it.
+
+That is worth stating alongside the warning, because it is the difference between "a clever hack"
+and "a widely used path with a long track record". It still proves nothing about tomorrow.
+Popularity is not a contract, and one could argue heavy use makes eventual rate limiting more
+likely rather than less. The five-year record is why building on it is reasonable; the absence of
+a contract is why both fallbacks below are wired in rather than optional.
+
 Wording to use, roughly: *"This uses the same free endpoint Microsoft Edge uses for its own
 read-aloud feature. It is not a supported Microsoft API and could change or stop working without
 notice. If you need a guarantee, configure the Azure Speech provider, which is the same voices
