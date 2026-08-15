@@ -23,7 +23,7 @@ to listen to stories."* The voices this uses are free.
 
 | Decision | Choice |
 |---|---|
-| Integration | `appsettings.json` default, per-page editor override |
+| Integration | `appsettings.json` only for v1. Per-page override deferred |
 | Audio storage | Disk cache under `App_Data`. No database, no migration |
 | Text source | **Server reads the published property**, not browser-sends-text |
 | Generation | **Lazy**, on first request. Nothing happens on publish |
@@ -62,8 +62,12 @@ the folder is always safe.
 
 ### Configuration precedence
 
-Page override, then `appsettings.json`, then built-in default. A page value only counts when it
-is explicitly set; empty means "inherit" rather than "off".
+**v1 is configuration only.** `appsettings.json`, then the built-in default.
+
+A per-page editor override was designed and deliberately deferred, so the precedence rule is
+already settled for when it arrives: page override, then config, then default, with a page value
+counting only when explicitly set, since empty means "inherit" rather than "off". Deferring it
+keeps v1 free of any backoffice extension and any schema of its own.
 
 ## The endpoint is unofficial, and users must be told
 
@@ -162,6 +166,10 @@ reason to choose this over a hosted service.
 
 Named explicitly so they do not get built early.
 
+- **The per-page editor override.** Designed above, deferred. It needs a property editor and a
+  precedence rule, and neither is required to ship something useful. **Extension point:** the
+  controller already resolves the node before reading the property, so an override is a lookup on
+  that node ahead of falling back to config. No restructuring.
 - **Listen counts.** Wanted later, and it is the PWA package's argument transplanted: count
   listens in your own database with no listener identity, where Medium and any hosted service
   would hold that data themselves. **Extension point:** the controller already knows the node key

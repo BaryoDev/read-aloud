@@ -17,6 +17,7 @@
 - **No build step for the site owner.** Browser assets ship compiled inside the package. Any backoffice UI is a plain custom element using the `uui-*` components Umbraco already ships. No npm, no bundler.
 - **Nothing about a listener is ever stored.** No database table, no migration, no IP, no user agent, no identity. The only persisted state is derived audio on disk.
 - **Nothing leaves the server except the synthesis call itself.** No analytics, no telemetry, no third-party call at runtime.
+- **v1 is configuration only.** No property editor, no backoffice extension, no schema of this package's own.
 - **Package id** `BaryoDev.Umbraco.ReadAloud`. Tags must include `umbraco-marketplace`. Licence MIT.
 - **Every change needs a test that fails without it.**
 - **No em dashes in any prose, code comment, commit message or document.**
@@ -1907,7 +1908,7 @@ git commit -m "add the demo site and its container"
 
 ## Self-Review
 
-**Spec coverage:** Integration precedence is partly deferred, since Tasks 1 to 11 implement the config half and the per-page override property editor is not yet a task. **Gap: add a Task 12 for the property editor** before calling v1 complete, or drop the override to config-only as discussed. Everything else maps: engine (1 to 4), cache (5, 6), text and options (7), Umbraco wiring (8), client and browser fallback (9), disclosure and furniture (10), playground (11). Listen counts are correctly absent, being a named non-goal.
+**Spec coverage:** v1 is **configuration only** by decision on 15 August; the per-page override is a named non-goal in the spec with its extension point identified, so no Task 12 is needed. Everything else maps: engine (1 to 4), cache (5, 6), text and options (7), Umbraco wiring (8), client and browser fallback (9), disclosure and furniture (10), playground (11). Listen counts are correctly absent, being a named non-goal.
 
 **Placeholder scan:** Task 9 Step 3 and Task 10 Steps 1 to 3 describe work rather than showing every line. That is deliberate: they adapt existing files that live at known paths in two repos, and reproducing several hundred lines of client TypeScript and boilerplate would obscure rather than help. Every other step carries the code.
 
