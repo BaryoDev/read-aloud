@@ -1,4 +1,4 @@
-import { EdgeTTS, type SynthesizeOptions, type WordBoundary } from "./edge-tts.js";
+import { EdgeTTS, InvalidOptionError, type SynthesizeOptions, type WordBoundary } from "./edge-tts.js";
 
 export interface HandlerOptions {
   /** Voice used when the request doesn't specify one. */
@@ -113,7 +113,7 @@ export function createReadAloudHandler(opts: HandlerOptions = {}) {
         headers: { "Cache-Control": "no-store" },
       });
     } catch (err) {
-      const status = err instanceof HttpError ? err.status : 500;
+      const status = err instanceof HttpError ? err.status : err instanceof InvalidOptionError ? 400 : 500;
       const message = err instanceof Error ? err.message : "read-aloud: synthesis failed";
       return Response.json({ error: message }, { status });
     }
@@ -145,7 +145,7 @@ export function createReadAloudExpressHandler(opts: HandlerOptions = {}) {
       res.setHeader("Cache-Control", "no-store");
       res.json(payload);
     } catch (err) {
-      const status = err instanceof HttpError ? err.status : 500;
+      const status = err instanceof HttpError ? err.status : err instanceof InvalidOptionError ? 400 : 500;
       const message = err instanceof Error ? err.message : "read-aloud: synthesis failed";
       res.status(status).json({ error: message });
     }

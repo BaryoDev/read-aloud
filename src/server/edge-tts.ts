@@ -64,6 +64,38 @@ function escapeXml(s: string): string {
     .replace(/'/g, "&apos;");
 }
 
+/** Thrown when voice, rate, pitch or volume is not a plain value. Callers should treat it as a 400. */
+export class InvalidOptionError extends Error {}
+
+const VOICE_RE = /^[A-Za-z0-9]+(-[A-Za-z0-9]+)+$/;
+const PROSODY_RE = /^(default|[+-]?\d+(\.\d+)?(%|Hz|st)?)$/;
+
+function checkOption(name: string, value: string, re: RegExp): string {
+  if (typeof value !== "string" || !re.test(value)) {
+    throw new InvalidOptionError(`read-aloud: invalid ${name}`);
+  }
+  return value;
+}
+
+/** Builds the SSML. voice, rate, pitch and volume go into attributes, so they are checked here. */
+export function buildSsml(
+  text: string,
+  voice: string,
+  rate: string,
+  pitch: string,
+  volume: string,
+): string {
+  checkOption("voice", voice, VOICE_RE);
+  checkOption("rate", rate, PROSODY_RE);
+  checkOption("pitch", pitch, PROSODY_RE);
+  checkOption("volume", volume, PROSODY_RE);
+  return (
+    `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>` +
+    `<voice name='${voice}'><prosody pitch='${pitch}' rate='${rate}' volume='${volume}'>` +
+    `${escapeXml(text)}</prosody></voice></speak>`
+  );
+}
+
 /**
  * Speaks the Edge "read aloud" WebSocket protocol. Server-side only: browsers can't set the
  * required Origin / User-Agent headers, which is why read-aloud ships this engine for your backend.
@@ -78,6 +110,7 @@ export class EdgeTTS {
     const wantBoundaries = opts.wordBoundaries ?? true;
 
     if (!text || !text.trim()) throw new Error("read-aloud: text is empty");
+    const ssml = buildSsml(text, voice, rate, pitch, volume);
 
     const connectionId = randomUUID().replace(/-/g, "");
     const url =
@@ -120,10 +153,6 @@ export class EdgeTTS {
             "Path:speech.config\r\n\r\n" +
             `{"context":{"synthesis":{"audio":{"metadataoptions":{"sentenceBoundaryEnabled":"false","wordBoundaryEnabled":"${wantBoundaries}"},"outputFormat":"${format}"}}}}`,
         );
-        const ssml =
-          `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='en-US'>` +
-          `<voice name='${voice}'><prosody pitch='${pitch}' rate='${rate}' volume='${volume}'>` +
-          `${escapeXml(text)}</prosody></voice></speak>`;
         ws.send(
           `X-RequestId:${connectionId}\r\n` +
             `X-Timestamp:${timestamp()}\r\n` +
