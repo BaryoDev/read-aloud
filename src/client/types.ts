@@ -21,6 +21,8 @@ export interface FetchPayload {
   rate?: string;
   pitch?: string;
   volume?: string;
+  /** Aborted when the controller is destroyed or starts a newer load. Pass it to your fetch. */
+  signal?: AbortSignal;
 }
 
 export interface FetchResult {
