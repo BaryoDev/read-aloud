@@ -76,7 +76,7 @@ What the endpoint answers:
 | Status | Body | When |
 | --- | --- | --- |
 | 200 | `{ audio, contentType, boundaries }` | `audio` is base64 MP3. Sent with `Cache-Control: no-store`. |
-| 400 | `{ error }` | No text left after stripping, or a voice outside `allowedVoices`. |
+| 400 | `{ error }` | No text left after stripping, a voice outside `allowedVoices`, or an invalid voice, rate, pitch or volume. |
 | 401 | `{ error: "unauthorized" }` | `authorize` returned `false`. |
 | 500 | `{ error }` | The speech service failed, or `authorize` threw. |
 

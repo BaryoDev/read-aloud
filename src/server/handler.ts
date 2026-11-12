@@ -1,4 +1,4 @@
-import { EdgeTTS, type SynthesizeOptions, type WordBoundary } from "./edge-tts.js";
+import { EdgeTTS, InvalidOptionError, assertOptions, type SynthesizeOptions, type WordBoundary } from "./edge-tts.js";
 
 export interface HandlerOptions {
   /** Voice used when the request doesn't specify one. */
@@ -87,6 +87,16 @@ async function synthesizeFromRequest(
   };
 }
 
+/** Host-set defaults are checked once at setup, so a typo fails at startup, not on every request. */
+function checkDefaults(opts: HandlerOptions): void {
+  assertOptions({
+    voice: opts.defaultVoice,
+    rate: opts.defaults?.rate,
+    pitch: opts.defaults?.pitch,
+    volume: opts.defaults?.volume,
+  });
+}
+
 class HttpError extends Error {
   constructor(public status: number, message: string) {
     super(message);
@@ -102,6 +112,7 @@ class HttpError extends Error {
  *   export const POST = createReadAloudHandler();
  */
 export function createReadAloudHandler(opts: HandlerOptions = {}) {
+  checkDefaults(opts);
   return async (request: Request): Promise<Response> => {
     try {
       const body = (await request.json()) as ReadAloudRequest;
@@ -113,7 +124,7 @@ export function createReadAloudHandler(opts: HandlerOptions = {}) {
         headers: { "Cache-Control": "no-store" },
       });
     } catch (err) {
-      const status = err instanceof HttpError ? err.status : 500;
+      const status = err instanceof HttpError ? err.status : err instanceof InvalidOptionError ? 400 : 500;
       const message = err instanceof Error ? err.message : "read-aloud: synthesis failed";
       return Response.json({ error: message }, { status });
     }
@@ -127,6 +138,7 @@ export function createReadAloudHandler(opts: HandlerOptions = {}) {
  *   app.post("/api/read-aloud", express.json(), createReadAloudExpressHandler());
  */
 export function createReadAloudExpressHandler(opts: HandlerOptions = {}) {
+  checkDefaults(opts);
   return async (
     req: { body?: unknown },
     res: {
@@ -145,7 +157,7 @@ export function createReadAloudExpressHandler(opts: HandlerOptions = {}) {
       res.setHeader("Cache-Control", "no-store");
       res.json(payload);
     } catch (err) {
-      const status = err instanceof HttpError ? err.status : 500;
+      const status = err instanceof HttpError ? err.status : err instanceof InvalidOptionError ? 400 : 500;
       const message = err instanceof Error ? err.message : "read-aloud: synthesis failed";
       res.status(status).json({ error: message });
     }

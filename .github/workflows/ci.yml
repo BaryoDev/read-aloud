@@ -34,6 +34,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Test
+        run: node --test test/*.test.mjs
+
       # The package declares `types` and ships only `dist`. A build that emits no
       # declarations is a broken publish that nothing else here would catch.
       - name: Declarations were emitted
