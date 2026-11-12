@@ -55,7 +55,10 @@ createReadAloudHandler({
   maxChars: 8000,                // longer text is cut off at this length, not rejected
   stripHtml: true,               // incoming HTML is flattened to text
   wordBoundaries: true,          // send per-word timings for highlighting
-  allowedVoices: ["en-US-JennyNeural", "en-GB-RyanNeural"],
+  allowedVoices: ["en-US-JennyNeural", "en-GB-RyanNeural"], // also checked against the default voice
+  maxBodyBytes: 262144,          // Fetch handler: bigger request bodies answer 413
+  timeoutMs: 30000,              // give up on the speech service after this long
+  onError: (err) => console.error(err), // the real error behind a 500
   authorize: (body, request) => request.headers.get("authorization") === `Bearer ${token}`, // Fetch handler, see below
 });
 ```
@@ -81,9 +84,10 @@ What the endpoint answers:
 | Status | Body | When |
 | --- | --- | --- |
 | 200 | `{ audio, contentType, boundaries }` | `audio` is base64 MP3. Sent with `Cache-Control: no-store`. |
-| 400 | `{ error }` | No text left after stripping, a voice outside `allowedVoices`, or an invalid voice, rate, pitch or volume. |
+| 400 | `{ error }` | Invalid JSON or a body that is not an object, no text left after stripping, a voice outside `allowedVoices`, or an invalid voice, rate, pitch or volume. |
 | 401 | `{ error: "unauthorized" }` | `authorize` returned `false`. |
-| 500 | `{ error }` | The speech service failed, or `authorize` threw. |
+| 413 | `{ error }` | The Fetch handler's request body is over `maxBodyBytes`. |
+| 500 | `{ error: "read-aloud: synthesis failed" }` | The speech service failed, timed out, or `authorize` threw. The message is fixed; use `onError` to see the cause. |
 
 ## 2. Read the page (browser)
 
@@ -241,7 +245,7 @@ const { audio, boundaries, contentType } = await new EdgeTTS().synthesize("Hello
 await writeFile("hello.mp3", audio);
 ```
 
-`boundaries` is `{ text, offset, duration }[]` in milliseconds. Pass a `signal`: the engine has no timeout of its own (see Troubleshooting).
+`boundaries` is `{ text, offset, duration }[]` in milliseconds. The engine gives up after `timeoutMs` (default 30000, `0` turns it off). Pass a `signal` to cancel sooner; a signal that is already aborted rejects at once. The handlers pass the request's signal for you.
 
 ## Content Security Policy
 
@@ -263,8 +267,8 @@ Any Microsoft neural voice name works, e.g. `en-US-JennyNeural`, `en-US-GuyNeura
 
 - **"audio failed to load" in the browser.** Usually the CSP `media-src` above. Check the console for a CSP violation.
 - **"read-aloud: connection closed before any audio".** The service accepted the connection and closed it without sending audio, most often for an unknown voice name or a voice that does not support the language of the text.
-- **The request hangs.** The service sometimes accepts the connection and then sends nothing, for example when it rejects the time-based token because the server clock is off. The engine does not time out on its own, so set a timeout on your route or pass `signal` to `EdgeTTS`, and keep the server clock synced.
-- **The service drops the socket after the audio.** Seen on some networks: it sends all the audio and the end-of-turn message, then disconnects. The engine has the audio by then and returns it, so this is not an error.
+- **The request hangs.** The service sometimes accepts the connection and then sends nothing, for example when it rejects the time-based token because the server clock is off. The engine times out after `timeoutMs` (default 30 seconds) with "read-aloud: timed out". Keep the server clock synced.
+- **The service drops the socket after the audio.** Seen on some networks: it sends all the audio and the end-of-turn message, then disconnects. The engine has the audio by then and returns it, so this is not an error. A drop before the end-of-turn message rejects with "connection closed before the end of the audio".
 - **It stopped working everywhere.** This is the public endpoint Edge uses, not a contracted API, and Microsoft can change it. Check [rany2/edge-tts](https://github.com/rany2/edge-tts) for a protocol change and open an issue here.
 
 ## Notes

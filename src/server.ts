@@ -1,6 +1,7 @@
 // Node entry point. Import from "@baryodev/read-aloud/server".
 export { EdgeTTS, InvalidOptionError, assertOptions, buildSsml } from "./server/edge-tts.js";
 export type {
+  EdgeTTSOptions,
   SynthesizeOptions,
   SynthesisResult,
   WordBoundary,
