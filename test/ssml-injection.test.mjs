@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { EdgeTTS, InvalidOptionError, buildSsml, createReadAloudHandler } from "../dist/server.js";
+import { EdgeTTS, InvalidOptionError, buildSsml, createReadAloudHandler, createReadAloudExpressHandler } from "../dist/server.js";
 
 const INJECT = "100%'><break time='60s'/><prosody rate='100%";
 
@@ -47,4 +47,22 @@ test("normal values still build the SSML", () => {
   assert.ok(ssml.includes("pitch='+5Hz' rate='-10%' volume='default'"));
   assert.ok(ssml.includes("a &lt; b"));
   assert.doesNotThrow(() => buildSsml("hi", "zh-CN-liaoning-XiaobeiNeural", "+0%", "-2st", "+0%"));
+});
+
+test("creating a handler with a bad default throws", () => {
+  assert.throws(() => createReadAloudHandler({ defaults: { rate: INJECT } }), InvalidOptionError);
+  assert.throws(() => createReadAloudExpressHandler({ defaultVoice: "a'b" }), InvalidOptionError);
+  assert.doesNotThrow(() => createReadAloudHandler({ defaultVoice: "en-US-AriaNeural", defaults: { rate: "+0%" } }));
+});
+
+test("the Express handler answers 400 for a bad rate", async () => {
+  const sent = {};
+  const res = {
+    status(code) { sent.status = code; return res; },
+    json(body) { sent.body = body; },
+    send(body) { sent.body = body; },
+    setHeader() {},
+  };
+  await createReadAloudExpressHandler()({ body: { text: "hi", rate: INJECT } }, res);
+  assert.equal(sent.status, 400);
 });

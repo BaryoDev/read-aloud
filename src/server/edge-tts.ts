@@ -77,6 +77,14 @@ function checkOption(name: string, value: string, re: RegExp): string {
   return value;
 }
 
+/** Checks the options that are set; undefined ones are skipped. Throws InvalidOptionError. */
+export function assertOptions(o: { voice?: string; rate?: string; pitch?: string; volume?: string }): void {
+  if (o.voice !== undefined) checkOption("voice", o.voice, VOICE_RE);
+  if (o.rate !== undefined) checkOption("rate", o.rate, PROSODY_RE);
+  if (o.pitch !== undefined) checkOption("pitch", o.pitch, PROSODY_RE);
+  if (o.volume !== undefined) checkOption("volume", o.volume, PROSODY_RE);
+}
+
 /** Builds the SSML. voice, rate, pitch and volume go into attributes, so they are checked here. */
 export function buildSsml(
   text: string,
