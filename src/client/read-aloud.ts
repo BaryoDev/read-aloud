@@ -32,6 +32,8 @@ export interface ReadAloudOptions {
   credentials?: RequestCredentials;
   /** Replace the default transport entirely (bring your own backend/provider). */
   fetchAudio?: (payload: FetchPayload) => Promise<FetchResult>;
+  /** Make the audio element. Default `new Audio()`. Mostly for tests and non-browser hosts. */
+  createAudio?: () => HTMLAudioElement;
 
   onState?: (state: ReadAloudState, previous: ReadAloudState) => void;
   onWord?: (index: number, boundary: WordBoundary) => void;
@@ -73,6 +75,7 @@ export class ReadAloud {
   private wordIndex = -1;
   private loadPromise: Promise<void> | null = null;
   private currentAbort: AbortController | null = null;
+  private destroyed = false;
 
   constructor(opts: ReadAloudOptions = {}) {
     this.opts = opts;
@@ -115,11 +118,13 @@ export class ReadAloud {
   async play(): Promise<void> {
     try {
       await this.preload();
+      if (this.destroyed) return;
       const el = this.audioEl;
       if (!el) return;
       if (this.opts.playbackRate) el.playbackRate = this.opts.playbackRate;
       await el.play();
     } catch (err) {
+      if (this.destroyed) return;
       this.fail(err);
     }
   }
@@ -159,6 +164,7 @@ export class ReadAloud {
 
   /** Free the audio URL, unwrap highlights, drop listeners. */
   destroy(): void {
+    this.destroyed = true;
     this.currentAbort?.abort();
     this.invalidate();
     this.highlighter?.destroy();
@@ -180,6 +186,7 @@ export class ReadAloud {
   }
 
   private fail(err: unknown): void {
+    if (this.destroyed) return;
     const error = err instanceof Error ? err : new Error(String(err));
     this.setState("error");
     this.opts.onError?.(error);
@@ -235,11 +242,14 @@ export class ReadAloud {
       rate: this.opts.rate,
       pitch: this.opts.pitch,
       volume: this.opts.volume,
+      signal: abort.signal,
     };
 
     const result = this.opts.fetchAudio
       ? await this.opts.fetchAudio(payload)
       : await this.defaultFetch(payload, abort.signal);
+    // destroy() ran while the fetch was pending: drop the result, make no audio.
+    if (this.destroyed) return;
 
     const bytes = toBytes(result.audio);
     const blob = new Blob([bytes as BlobPart], { type: result.contentType ?? "audio/mpeg" });
@@ -255,11 +265,12 @@ export class ReadAloud {
   }
 
   private async defaultFetch(payload: FetchPayload, signal: AbortSignal): Promise<FetchResult> {
+    const { signal: _unused, ...wire } = payload; // the signal is not part of the request body
     const res = await fetch(this.opts.endpoint ?? "/api/read-aloud", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...this.opts.headers },
       credentials: this.opts.credentials ?? "same-origin",
-      body: JSON.stringify(payload),
+      body: JSON.stringify(wire),
       signal,
     });
     if (!res.ok) {
@@ -271,7 +282,11 @@ export class ReadAloud {
 
   private setupAudio(url: string): void {
     if (!this.audioEl) {
-      this.audioEl = typeof Audio !== "undefined" ? new Audio() : null;
+      this.audioEl = this.opts.createAudio
+        ? this.opts.createAudio()
+        : typeof Audio !== "undefined"
+          ? new Audio()
+          : null;
       if (!this.audioEl) throw new Error("read-aloud: Audio is not available (server render?)");
       this.audioEl.preload = "auto";
       this.audioEl.addEventListener("playing", () => this.setState("playing"));
@@ -287,7 +302,11 @@ export class ReadAloud {
         this.opts.onEnd?.();
       });
       this.audioEl.addEventListener("timeupdate", () => this.onTimeUpdate());
-      this.audioEl.addEventListener("error", () => this.fail(new Error("read-aloud: audio failed to load")));
+      this.audioEl.addEventListener("error", () => {
+        // Drop the cached audio so the next play() fetches again.
+        this.invalidate();
+        this.fail(new Error("read-aloud: audio failed to load"));
+      });
     }
     if (this.opts.playbackRate) this.audioEl.playbackRate = this.opts.playbackRate;
     this.audioEl.src = url;
