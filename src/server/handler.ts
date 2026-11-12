@@ -14,8 +14,13 @@ export interface HandlerOptions {
   /**
    * Guard a request before it runs — return false (or throw) to reject.
    * Use it for auth, rate limiting, or allow-listing voices.
+   * The second argument is the incoming request (a `Request` for the Fetch
+   * handler, the Express `req` for the Express handler), so you can read
+   * headers, cookies or the IP:
+   *
+   *   authorize: (body, request) => request.headers.get("authorization") === `Bearer ${token}`
    */
-  authorize?: (req: ReadAloudRequest) => boolean | Promise<boolean>;
+  authorize?: (body: ReadAloudRequest, request?: any) => boolean | Promise<boolean>;
   /** Restrict which voices callers may request. */
   allowedVoices?: string[];
 }
@@ -116,7 +121,7 @@ export function createReadAloudHandler(opts: HandlerOptions = {}) {
   return async (request: Request): Promise<Response> => {
     try {
       const body = (await request.json()) as ReadAloudRequest;
-      if (opts.authorize && !(await opts.authorize(body))) {
+      if (opts.authorize && !(await opts.authorize(body, request))) {
         return Response.json({ error: "unauthorized" }, { status: 401 });
       }
       const payload = await synthesizeFromRequest(body, opts);
@@ -140,7 +145,7 @@ export function createReadAloudHandler(opts: HandlerOptions = {}) {
 export function createReadAloudExpressHandler(opts: HandlerOptions = {}) {
   checkDefaults(opts);
   return async (
-    req: { body?: unknown },
+    req: { body?: unknown; [key: string]: unknown },
     res: {
       status: (code: number) => { json: (body: unknown) => void };
       setHeader: (name: string, value: string) => void;
@@ -149,7 +154,7 @@ export function createReadAloudExpressHandler(opts: HandlerOptions = {}) {
   ): Promise<void> => {
     try {
       const body = (req.body ?? {}) as ReadAloudRequest;
-      if (opts.authorize && !(await opts.authorize(body))) {
+      if (opts.authorize && !(await opts.authorize(body, req))) {
         res.status(401).json({ error: "unauthorized" });
         return;
       }
