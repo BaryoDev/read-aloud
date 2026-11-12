@@ -42,13 +42,15 @@
   "scripts": {
     "build": "tsup",
     "typecheck": "tsc --noEmit",
-    "test": "npm run build && node --test test/*.test.mjs",
+    "test": "npm run build && npm run typecheck:consumer && node --test test/*.test.mjs",
+    "typecheck:consumer": "tsc --noEmit -p test/types/tsconfig.json",
     "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@types/express": "^4.17.21",
     "@types/node": "^20.0.0",
     "@types/ws": "^8.5.12",
     "tsup": "^8.3.0",
