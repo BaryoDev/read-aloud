@@ -14,11 +14,13 @@ export interface HandlerOptions {
   /**
    * Guard a request before it runs — return false (or throw) to reject.
    * Use it for auth, rate limiting, or allow-listing voices.
-   * The second argument is the incoming request (a `Request` for the Fetch
-   * handler, the Express `req` for the Express handler), so you can read
-   * headers, cookies or the IP:
+   * The first argument is the parsed JSON body. The second is the incoming
+   * request (a `Request` for the Fetch handler, the Express `req` for the
+   * Express handler), for headers, cookies or the IP. The body is already
+   * consumed, so do not read it from the request again.
    *
-   *   authorize: (body, request) => request.headers.get("authorization") === `Bearer ${token}`
+   *   Fetch:   authorize: (body, request) => request.headers.get("authorization") === `Bearer ${token}`
+   *   Express: authorize: (body, req) => req.headers.authorization === `Bearer ${token}`
    */
   authorize?: (body: ReadAloudRequest, request?: any) => boolean | Promise<boolean>;
   /** Restrict which voices callers may request. */
@@ -145,7 +147,7 @@ export function createReadAloudHandler(opts: HandlerOptions = {}) {
 export function createReadAloudExpressHandler(opts: HandlerOptions = {}) {
   checkDefaults(opts);
   return async (
-    req: { body?: unknown; [key: string]: unknown },
+    req: { body?: unknown },
     res: {
       status: (code: number) => { json: (body: unknown) => void };
       setHeader: (name: string, value: string) => void;

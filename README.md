@@ -56,15 +56,23 @@ createReadAloudHandler({
   stripHtml: true,               // incoming HTML is flattened to text
   wordBoundaries: true,          // send per-word timings for highlighting
   allowedVoices: ["en-US-JennyNeural", "en-GB-RyanNeural"],
-  authorize: (body, request) => request.headers.get("authorization") === `Bearer ${token}`, // see below
+  authorize: (body, request) => request.headers.get("authorization") === `Bearer ${token}`, // Fetch handler, see below
 });
 ```
 
-`authorize(body, request)` receives the parsed JSON body (`{ text, voice, rate, pitch, volume }`) and the incoming request: a `Request` for the Fetch handler, the Express `req` for the Express handler. Read headers or cookies from it. Return `false` to answer 401. Callbacks that take only `body` keep working.
+`authorize(body, request)` receives the parsed JSON body (`{ text, voice, rate, pitch, volume }`) first, then the incoming request for headers, cookies or the IP. The body is already read, so do not call `request.json()` or `clone()` inside `authorize`. Return `false` to answer 401. Callbacks that take only `body` keep working.
+
+The request is a `Request` in the Fetch handler and the Express `req` in the Express handler, so the header read differs:
 
 ```ts
+// Fetch handler
 createReadAloudHandler({
-  authorize: async (body, request) => isSignedIn(request.headers.get("authorization")),
+  authorize: (body, request) => isSignedIn(request.headers.get("authorization")),
+});
+
+// Express handler
+createReadAloudExpressHandler({
+  authorize: (body, req) => isSignedIn(req.headers.authorization),
 });
 ```
 
