@@ -13,7 +13,7 @@
 
 Edge's read-aloud voices are free and good. The catch: a browser can't call the service directly (it needs headers browsers refuse to set), so you need a small server piece. This package ships both halves:
 
-- **Server**: an `EdgeTTS` engine and a drop-in endpoint handler. No API key.
+- **Server**: an `EdgeTTS` engine, an `AzureSpeechTTS` engine (official Azure AI Speech, needs a key), and a drop-in endpoint handler. The Edge path needs no key but is best effort and currently failing, see [Azure AI Speech](#azure-ai-speech-supported-backend).
 - **Browser**: a headless `ReadAloud` controller you build any UI on, plus an optional button and `<read-aloud>` web component.
 - **Highlighting**: per-word timings from the engine drive word highlighting in your article, formatting preserved.
 
@@ -228,6 +228,30 @@ hl.highlight(wordIndex);
 hl.destroy();
 ```
 
+## Azure AI Speech (supported backend)
+
+The default engine uses the public endpoint Microsoft Edge uses. That endpoint is unofficial, it has answered 403 since about October 12 2026, and it can change again. Treat it as best effort. For anything that has to work, use Azure AI Speech, which is a documented API with a key.
+
+Create a Speech resource in the Azure portal, then give the handler its key and region:
+
+```ts
+import { createReadAloudHandler } from "@baryodev/read-aloud/server";
+
+export const POST = createReadAloudHandler({
+  azure: { key: process.env.MY_SPEECH_KEY, region: "eastus" },
+});
+```
+
+Or set `AZURE_SPEECH_KEY` and `AZURE_SPEECH_REGION` and pass `backend: "azure"`. The environment is only read when the Azure backend is selected, so setting it does not change a handler that has no `azure` or `backend` option. Without either option the handler uses Edge, as before.
+
+`AzureSpeechTTS` has the same `synthesize` method as `EdgeTTS`, so it works with the direct-engine example below. Notes:
+
+- The key is sent only as the `Ocp-Apim-Subscription-Key` header. It is never logged and never put in an error. Errors carry the HTTP status, for example "read-aloud: azure speech answered 401". Redirects are not followed.
+- Every call has a timeout (`timeoutMs`, default 30000) and a cap on the audio read (`azure.maxAudioBytes`, default 16 MiB).
+- The REST API returns no word timings, so `boundaries` is empty and word highlighting does nothing with this backend.
+- Voice, rate, pitch and volume are checked the same way as for Edge, and text is XML-escaped.
+- `azure.endpoint` replaces the full URL, for sovereign clouds or a proxy. It must be https (http only for localhost) with no credentials or fragment, and `region` is ignored when it is set. `backend` must be "edge" or "azure", and "edge" cannot be combined with `azure`; anything else throws at setup. `maxAudioBytes` must be a positive integer. Billing and quotas are Azure's.
+
 ## Using the engine directly
 
 The handler is a thin layer over `EdgeTTS`. Use it on its own to pre-render audio, write files, or put it behind your own route.
@@ -269,12 +293,12 @@ Any Microsoft neural voice name works, e.g. `en-US-JennyNeural`, `en-US-GuyNeura
 - **"read-aloud: connection closed before any audio".** The service accepted the connection and closed it without sending audio, most often for an unknown voice name or a voice that does not support the language of the text.
 - **The request hangs.** The service sometimes accepts the connection and then sends nothing, for example when it rejects the time-based token because the server clock is off. The engine times out after `timeoutMs` (default 30 seconds) with "read-aloud: timed out". Keep the server clock synced.
 - **The service drops the socket after the audio.** Seen on some networks: it sends all the audio and the end-of-turn message, then disconnects. The engine has the audio by then and returns it, so this is not an error. A drop before the end-of-turn message rejects with "connection closed before the end of the audio".
-- **It stopped working everywhere.** This is the public endpoint Edge uses, not a contracted API, and Microsoft can change it. Check [rany2/edge-tts](https://github.com/rany2/edge-tts) for a protocol change and open an issue here.
+- **Edge answers 403.** Known and ongoing since about October 12 2026. The Edge path is best effort and currently failing; switch to the Azure backend above. This is the public endpoint Edge uses, not a contracted API, and Microsoft can change it. Check [rany2/edge-tts](https://github.com/rany2/edge-tts) for a protocol change and open an issue here.
 
 ## Notes
 
 - **SSR-safe.** Importing does nothing until you call into it. The controller only touches the DOM in the browser.
-- **No API key, no account.** It rides the same public endpoint Edge uses. Be a good citizen: cache, cap length (`maxChars`), and gate it if it's public.
+- **No API key, no account on the Edge path.** It rides the same public endpoint Edge uses, which is currently failing (see Azure above). Be a good citizen: cache, cap length (`maxChars`), and gate it if it's public.
 - **Response shape.** The endpoint returns `{ audio: base64, contentType, boundaries }`. Point `fetchAudio` elsewhere to use a different backend.
 
 ## License

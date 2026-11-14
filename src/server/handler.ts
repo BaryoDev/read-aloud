@@ -1,3 +1,4 @@
+import { AzureSpeechTTS, type AzureSpeechOptions } from "./azure-tts.js";
 import { EdgeTTS, InvalidOptionError, assertOptions, type SynthesisResult, type SynthesizeOptions, type WordBoundary } from "./edge-tts.js";
 
 export interface HandlerOptions {
@@ -31,7 +32,15 @@ export interface HandlerOptions {
   timeoutMs?: number;
   /** Called with the real error before a 500 goes out. The caller only sees a fixed message. */
   onError?: (error: unknown) => void;
-  /** Use your own engine instead of the built-in one. */
+  /**
+   * Which built-in engine to use. Default "edge", or "azure" when `azure` is set.
+   * "azure" reads AZURE_SPEECH_KEY and AZURE_SPEECH_REGION when `azure` leaves them out.
+   * The environment is never read for the default Edge engine.
+   */
+  backend?: "edge" | "azure";
+  /** Azure AI Speech settings. Setting this selects the Azure backend. */
+  azure?: AzureSpeechOptions;
+  /** Use your own engine instead of the built-in one. Wins over `backend` and `azure`. */
   engine?: { synthesize: (text: string, opts?: SynthesizeOptions) => Promise<SynthesisResult> };
 }
 
@@ -153,13 +162,23 @@ async function synthesizeFromRequest(
 }
 
 /** Host-set defaults are checked once at setup, so a typo fails at startup, not on every request. */
-function checkDefaults(opts: HandlerOptions): void {
+function checkDefaults(opts: HandlerOptions): HandlerOptions {
   assertOptions({
     voice: opts.defaultVoice,
     rate: opts.defaults?.rate,
     pitch: opts.defaults?.pitch,
     volume: opts.defaults?.volume,
   });
+  if (opts.engine) return opts;
+  if (opts.backend !== undefined && opts.backend !== "edge" && opts.backend !== "azure") {
+    throw new Error('read-aloud: backend must be "edge" or "azure"');
+  }
+  if (opts.backend === "edge" && opts.azure) {
+    throw new Error('read-aloud: backend "edge" cannot be combined with azure settings');
+  }
+  const backend = opts.backend ?? (opts.azure ? "azure" : "edge");
+  if (backend === "azure") return { ...opts, engine: new AzureSpeechTTS(opts.azure) };
+  return opts;
 }
 
 class HttpError extends Error {
@@ -231,8 +250,8 @@ async function readJson(request: Request, max: number): Promise<ReadAloudRequest
  *   import { createReadAloudHandler } from "@baryodev/read-aloud/server";
  *   export const POST = createReadAloudHandler();
  */
-export function createReadAloudHandler(opts: HandlerOptions = {}) {
-  checkDefaults(opts);
+export function createReadAloudHandler(options: HandlerOptions = {}) {
+  const opts = checkDefaults(options);
   return async (request: Request): Promise<Response> => {
     try {
       const body = await readJson(request, opts.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES);
@@ -256,8 +275,8 @@ export function createReadAloudHandler(opts: HandlerOptions = {}) {
  *   import { createReadAloudExpressHandler } from "@baryodev/read-aloud/server";
  *   app.post("/api/read-aloud", express.json(), createReadAloudExpressHandler());
  */
-export function createReadAloudExpressHandler(opts: HandlerOptions = {}) {
-  checkDefaults(opts);
+export function createReadAloudExpressHandler(options: HandlerOptions = {}) {
+  const opts = checkDefaults(options);
   return async (
     req: { body?: unknown },
     res: {
