@@ -13,7 +13,10 @@ export interface AzureSpeechOptions {
   key?: string;
   /** Speech resource region, e.g. "eastus". Falls back to AZURE_SPEECH_REGION. */
   region?: string;
-  /** Replace the full REST URL. For tests, proxies and sovereign clouds. Must be http or https. */
+  /**
+   * Replace the full REST URL, for proxies and sovereign clouds. Must be https (http only for
+   * localhost), with no credentials or fragment. When set, `region` is ignored.
+   */
   endpoint?: string;
   /** Largest audio response read, in bytes. Default 16 MiB. A bigger answer is an error. */
   maxAudioBytes?: number;
@@ -34,7 +37,7 @@ const XML_INVALID_RE = new RegExp("[\\u0000-\\u0008\\u000B\\u000C\\u000E-\\u001F
  * The REST API returns no word timings, so `boundaries` is always empty.
  */
 export class AzureSpeechTTS {
-  private readonly key: string;
+  readonly #key: string;
   private readonly url: string;
   private readonly maxAudioBytes: number;
   private readonly userAgent: string;
@@ -45,7 +48,7 @@ export class AzureSpeechTTS {
     // A key with CR, LF or other control characters cannot be a valid header value.
     // eslint-disable-next-line no-control-regex
     if (/[\u0000-\u001F\u007F]/.test(key)) throw new Error("read-aloud: azure speech key is not valid");
-    this.key = key;
+    this.#key = key;
 
     if (options.endpoint !== undefined) {
       let u: URL;
@@ -54,8 +57,12 @@ export class AzureSpeechTTS {
       } catch {
         throw new Error("read-aloud: azure endpoint is not a valid URL");
       }
-      if (u.protocol !== "https:" && u.protocol !== "http:") {
-        throw new Error("read-aloud: azure endpoint must be http or https");
+      const loopback = u.hostname === "localhost" || u.hostname === "127.0.0.1" || u.hostname === "[::1]";
+      if (u.protocol !== "https:" && !(u.protocol === "http:" && loopback)) {
+        throw new Error("read-aloud: azure endpoint must be https (http only for localhost)");
+      }
+      if (u.username || u.password || u.hash) {
+        throw new Error("read-aloud: azure endpoint must not hold credentials or a fragment");
       }
       this.url = u.toString();
     } else {
@@ -64,7 +71,11 @@ export class AzureSpeechTTS {
       this.url = `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`;
     }
 
-    this.maxAudioBytes = options.maxAudioBytes ?? DEFAULT_MAX_AUDIO_BYTES;
+    const max = options.maxAudioBytes ?? DEFAULT_MAX_AUDIO_BYTES;
+    if (!Number.isSafeInteger(max) || max <= 0) {
+      throw new Error("read-aloud: azure maxAudioBytes must be a positive integer");
+    }
+    this.maxAudioBytes = max;
     const ua = options.userAgent ?? "baryodev-read-aloud";
     if (ua.length >= 255 || /[^\x20-\x7E]/.test(ua)) throw new Error("read-aloud: azure user agent is not valid");
     this.userAgent = ua;
@@ -107,7 +118,7 @@ export class AzureSpeechTTS {
         res = await fetch(this.url, {
           method: "POST",
           headers: {
-            "Ocp-Apim-Subscription-Key": this.key,
+            "Ocp-Apim-Subscription-Key": this.#key,
             "Content-Type": "application/ssml+xml",
             "X-Microsoft-OutputFormat": format,
             "User-Agent": this.userAgent,

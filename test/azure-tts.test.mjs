@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
+import { inspect } from "node:util";
 import { AzureSpeechTTS, createReadAloudHandler, InvalidOptionError } from "../dist/server.js";
 
 const KEY = "sekret-key-0123456789abcdef"; // allow-secret test fixture, not a real key
@@ -228,7 +229,7 @@ test("the constructor needs a key and a region or endpoint, and never echoes the
     assert.throws(() => new AzureSpeechTTS({ region: "eastus" }), /key is not set/);
     assert.throws(() => new AzureSpeechTTS({ key: KEY }), /region/);
     assert.throws(() => new AzureSpeechTTS({ key: KEY, region: "east.evil.com/x" }), (e) => !e.message.includes(KEY));
-    assert.throws(() => new AzureSpeechTTS({ key: KEY, endpoint: "ftp://x" }), /http or https/);
+    assert.throws(() => new AzureSpeechTTS({ key: KEY, endpoint: "ftp://x" }), /https/);
     assert.throws(() => new AzureSpeechTTS({ key: `${KEY}\r\nX: y`, region: "eastus" }), (e) => !e.message.includes(KEY));
     assert.doesNotThrow(() => new AzureSpeechTTS({ key: KEY, region: "eastus" }));
     process.env.AZURE_SPEECH_KEY = KEY;
@@ -274,17 +275,92 @@ test("the handler uses Azure when azure is set, and a failure never leaks the ke
   }
 });
 
-test("backend azure without a key fails at setup, and the default stays Edge", () => {
+test("backend azure without a key fails at setup", () => {
   const saved = process.env.AZURE_SPEECH_KEY;
   delete process.env.AZURE_SPEECH_KEY;
   try {
     assert.throws(() => createReadAloudHandler({ backend: "azure" }), /key is not set/);
-    process.env.AZURE_SPEECH_KEY = KEY;
-    // Env alone must not switch an existing caller off Edge.
-    assert.doesNotThrow(() => createReadAloudHandler());
   } finally {
     if (saved === undefined) delete process.env.AZURE_SPEECH_KEY;
     else process.env.AZURE_SPEECH_KEY = saved;
+  }
+});
+
+test("env settings alone leave the default handler on Edge", async () => {
+  const saved = { k: process.env.AZURE_SPEECH_KEY, r: process.env.AZURE_SPEECH_REGION, f: globalThis.fetch };
+  process.env.AZURE_SPEECH_KEY = KEY;
+  process.env.AZURE_SPEECH_REGION = "eastus";
+  let fetchCalls = 0;
+  globalThis.fetch = async () => {
+    fetchCalls++;
+    return new Response(new Uint8Array([1]), { status: 200 });
+  };
+  try {
+    const handler = createReadAloudHandler({ timeoutMs: 50 });
+    const res = await handler(new Request("http://x/", { method: "POST", body: JSON.stringify({ text: "hi" }) }));
+    // Azure would have called fetch and answered 200. Edge fails to connect in 50 ms.
+    assert.equal(fetchCalls, 0);
+    assert.equal(res.status, 500);
+  } finally {
+    globalThis.fetch = saved.f;
+    for (const [name, v] of [["AZURE_SPEECH_KEY", saved.k], ["AZURE_SPEECH_REGION", saved.r]]) {
+      if (v === undefined) delete process.env[name];
+      else process.env[name] = v;
+    }
+  }
+});
+
+test("an unknown backend fails at setup, and edge with azure settings too", () => {
+  for (const backend of ["Azure", "azur", "", " azure", "EDGE", null, 1]) {
+    assert.throws(() => createReadAloudHandler({ backend, azure: { key: KEY, region: "eastus" } }), /backend must be/);
+  }
+  assert.throws(
+    () => createReadAloudHandler({ backend: "edge", azure: { key: KEY, region: "eastus" } }),
+    /cannot be combined/,
+  );
+  assert.doesNotThrow(() => createReadAloudHandler({ backend: "edge" }));
+  assert.doesNotThrow(() => createReadAloudHandler({ backend: "azure", azure: { key: KEY, region: "eastus" } }));
+});
+
+test("the key is not visible through JSON.stringify or util.inspect", () => {
+  const tts = new AzureSpeechTTS({ key: KEY, region: "eastus" });
+  assert.ok(!JSON.stringify(tts).includes(KEY));
+  assert.ok(!inspect(tts, { showHidden: true, depth: 5 }).includes(KEY));
+  assert.ok(!Object.values(tts).some((v) => String(v).includes(KEY)));
+  assert.ok(!Object.getOwnPropertyNames(tts).some((n) => String(tts[n]).includes(KEY)));
+  const handlerOpts = { azure: { key: KEY, region: "eastus" } };
+  const handler = createReadAloudHandler(handlerOpts);
+  assert.ok(!inspect(handler, { showHidden: true, depth: 5 }).includes(KEY));
+});
+
+test("maxAudioBytes must be a positive safe integer", () => {
+  for (const bad of [NaN, Infinity, -Infinity, 0, -1, 1.5, "10", Number.MAX_SAFE_INTEGER + 1]) {
+    assert.throws(() => new AzureSpeechTTS({ key: KEY, region: "eastus", maxAudioBytes: bad }), /maxAudioBytes/);
+  }
+  assert.doesNotThrow(() => new AzureSpeechTTS({ key: KEY, region: "eastus", maxAudioBytes: 1 }));
+});
+
+test("the endpoint must be https, or http on loopback, without credentials or a fragment", () => {
+  const make = (endpoint) => new AzureSpeechTTS({ key: KEY, endpoint });
+  assert.throws(() => make("http://example.com/cognitiveservices/v1"), /https/);
+  assert.throws(() => make("http://10.0.0.5/v1"), /https/);
+  assert.throws(() => make("https://user:pw@example.com/v1"), /credentials/);
+  assert.throws(() => make("https://user@example.com/v1"), /credentials/);
+  assert.throws(() => make("https://example.com/v1#frag"), /fragment/);
+  assert.doesNotThrow(() => make("https://example.com/cognitiveservices/v1?deploymentId=x"));
+  for (const host of ["localhost", "127.0.0.1", "[::1]"]) {
+    assert.doesNotThrow(() => make(`http://${host}:8080/v1`));
+  }
+});
+
+test("region is ignored when an endpoint is set", async () => {
+  const svc = await fakeAzure(ok([1]));
+  try {
+    const tts = new AzureSpeechTTS({ key: KEY, region: "not a region!", endpoint: svc.endpoint });
+    await tts.synthesize("hi");
+    assert.equal(svc.seen.length, 1);
+  } finally {
+    await svc.close();
   }
 });
 

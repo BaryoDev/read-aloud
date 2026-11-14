@@ -170,6 +170,12 @@ function checkDefaults(opts: HandlerOptions): HandlerOptions {
     volume: opts.defaults?.volume,
   });
   if (opts.engine) return opts;
+  if (opts.backend !== undefined && opts.backend !== "edge" && opts.backend !== "azure") {
+    throw new Error('read-aloud: backend must be "edge" or "azure"');
+  }
+  if (opts.backend === "edge" && opts.azure) {
+    throw new Error('read-aloud: backend "edge" cannot be combined with azure settings');
+  }
   const backend = opts.backend ?? (opts.azure ? "azure" : "edge");
   if (backend === "azure") return { ...opts, engine: new AzureSpeechTTS(opts.azure) };
   return opts;

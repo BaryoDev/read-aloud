@@ -250,7 +250,7 @@ Or set `AZURE_SPEECH_KEY` and `AZURE_SPEECH_REGION` and pass `backend: "azure"`.
 - Every call has a timeout (`timeoutMs`, default 30000) and a cap on the audio read (`azure.maxAudioBytes`, default 16 MiB).
 - The REST API returns no word timings, so `boundaries` is empty and word highlighting does nothing with this backend.
 - Voice, rate, pitch and volume are checked the same way as for Edge, and text is XML-escaped.
-- `azure.endpoint` replaces the full URL, for sovereign clouds or a proxy. Billing and quotas are Azure's.
+- `azure.endpoint` replaces the full URL, for sovereign clouds or a proxy. It must be https (http only for localhost) with no credentials or fragment, and `region` is ignored when it is set. `backend` must be "edge" or "azure", and "edge" cannot be combined with `azure`; anything else throws at setup. `maxAudioBytes` must be a positive integer. Billing and quotas are Azure's.
 
 ## Using the engine directly
 
