@@ -1,6 +1,6 @@
 {
   "name": "@baryodev/read-aloud",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Add read-aloud to any site with Microsoft Edge's neural TTS. A tiny Node engine plus a customizable, framework-free browser reader: controller, web component, and word highlighting.",
   "keywords": [
     "tts",
